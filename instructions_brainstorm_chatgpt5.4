@@ -1,0 +1,172 @@
+Ja. Die Mod ist realistisch und sauber umsetzbar.
+Und zwar nicht als Hack, sondern als belastbare Lösung.
+
+Zielbild
+
+Du willst im Kern:
+
+Logistic-Request-Profile speichern
+diese exportieren
+in einem anderen Spielstand wieder importieren
+und dann auf den Charakter / Spidertron / ggf. Fahrzeuge anwenden
+
+Also praktisch: „Blueprints für Logistikanfragen“, aber savegame-übergreifend.
+
+Meine Einschätzung
+
+Confidence: 8.5/10, dass ich dir dafür eine funktionierende Mod bauen kann.
+
+Warum relativ hoch:
+
+Das Problem ist klar abgegrenzt.
+Die Datenstruktur ist überschaubar.
+UI kann simpel gehalten werden.
+Savegame-übergreifender Transfer ist lösbar.
+
+Der kritische Punkt ist nicht die Logik, sondern der Export/Import-Weg, weil Factorio-Mods bei Dateizugriff absichtlich eingeschränkt sind. Genau da entscheidet sich, wie man es sauber baut.
+
+Die richtige technische Richtung
+Variante A — Best Practice
+
+Export/Import über einen String
+So wie Blueprint-Strings, nur für Logistic-Requests.
+
+Ablauf:
+
+Du öffnest eine GUI
+Klickst auf „Profil aus aktueller Logistic-Anfrage speichern“
+Die Mod erzeugt daraus einen kompakten Textstring
+Diesen String kopierst du
+Im anderen Spielstand fügst du ihn ein
+Klick auf „Anwenden“
+Warum das die beste Lösung ist
+savegame-übergreifend
+multiplayer-tauglich
+kein externer Dateizugriff nötig
+robust gegen Mod-Beschränkungen
+leicht teilbar mit Freunden
+
+Das ist strategisch die einzig saubere Lösung. Alles andere wird unnötig fragil.
+
+Was die Mod konkret können sollte
+Core Features
+aktuelles Logistic-Request-Setup auslesen
+als benanntes Profil speichern
+Profil als String exportieren
+String importieren
+importiertes Profil auf Ziel anwenden
+Sinnvolle Zusatzfeatures
+mehrere Profile pro Save lokal verwalten
+Umbenennen / Löschen
+„Nur vorhandene Slots überschreiben“
+„Vorher leeren“
+Import-Validierung
+Fehlermeldung bei Items, die in anderem Modpack nicht existieren
+Unterstützung für:
+Spieler
+Spidertron
+eventuell Requester Chest später separat
+Wichtig: Was genau übertragen werden kann
+
+Je nach Entity-Typ kann man typischerweise übertragen:
+
+Item-Name
+Mindestmenge
+Maximalmenge / Zielmenge, falls vorhanden
+Slot-/Section-Zuordnung, soweit API-seitig sauber zugänglich
+Müll-/Trash-Settings nur, wenn technisch verfügbar und sinnvoll
+
+Dein Screenshot zeigt das neue Section-/Gruppen-System der Logistics.
+Das heißt: Die Mod sollte nicht nur einzelne Requests speichern, sondern idealerweise auch:
+
+Gruppenname
+Gruppenzustand
+Reihenfolge der Einträge innerhalb der Gruppe
+
+Das ist machbar, aber genau der Punkt, wo man API-genau arbeiten muss.
+
+Risiken, die man direkt sauber abfangen muss
+1. Unterschiedliche Mods zwischen Spielständen
+
+Wenn du Profil A exportierst, aber im anderen Save ein Item nicht existiert:
+
+nicht abstürzen
+Item überspringen
+Report anzeigen: „3 Einträge konnten nicht angewendet werden“
+2. Unterschiedliche freigeschaltete Technologien
+
+Falls Requests für Dinge gesetzt werden, die im Zielsave noch nicht verfügbar sind:
+
+entweder trotzdem setzen, wenn technisch erlaubt
+oder sauber blocken und melden
+3. Unterschiedliche Logistic-Slot-/Section-Struktur
+
+Wenn Factorio 2.x intern bei Characters/Spidertrons Unterschiede macht:
+
+Typ-spezifische Anwendung bauen
+nicht „one size fits all“
+So würde ich das Produkt schneiden
+Phase 1 — MVP
+GUI-Button
+aktuelles Profil aus Spieler lesen
+Export-String erzeugen
+Import-String einfügen
+Requests anwenden
+
+Das ist der schnellste Weg zu echtem Nutzen.
+
+Phase 2 — Komfort
+Profile lokal speichern
+Profilnamen
+Liste gespeicherter Presets
+overwrite / merge / clear before apply
+Phase 3 — Premium
+Gruppen/Sections vollständig erhalten
+Spidertron-Support
+Shortcut-Button in der Top-Bar
+Hotkeys
+evtl. Share-Code mit Versionsinfo
+Harte Wahrheit
+
+Die Mod ist nicht schwierig, wenn man sie korrekt scoped.
+Sie wird nur dann unnötig teuer, wenn man sofort alles gleichzeitig will:
+
+Character
+Spidertron
+Group-Layout
+UI-Polish
+Multiplayer
+Mod-Kompatibilität
+Fehlerresistenz
+
+Deshalb: erst MVP, dann Ausbau.
+
+Meine klare Empfehlung
+
+Baue es nicht als Datei-basierten Save/Load-Mechanismus.
+Baue es als Export-/Import-Code. Das ist die richtige Architektur.
+
+Dateibasiert klingt erstmal bequem, ist in Factorio-Mods aber strategisch die falsche Route.
+
+Was ich dafür von dir bräuchte
+
+Damit ich dir die Mod sauber aufsetzen kann, brauche ich nur drei Produktentscheidungen:
+
+Nur Spielerinventar oder auch Spidertron?
+Sollen Gruppen/Sections exakt mitgespeichert werden?
+Willst du Copy/Paste-String, oder zusätzlich auch lokale Presets im Save?
+Mein Vorschlag für Version 1
+Spieler-Support
+Export/Import per String
+lokale Presets
+Gruppen wenn API-seitig sauber zugänglich, sonst zunächst nur Requests
+
+Das bringt dir am schnellsten echten ROI.
+
+Wenn du willst, mache ich dir als Nächstes direkt die technische Spezifikation der Mod-Struktur mit:
+
+Dateiaufbau
+GUI-Konzept
+Datenmodell
+Exportformat
+Umsetzungsreihenfolge

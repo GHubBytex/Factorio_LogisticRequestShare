@@ -1,0 +1,9 @@
+{
+  "name": "logistic-request-share",
+  "version": "0.2.0",
+  "title": "Logistic Request Share",
+  "author": "Bytex",
+  "factorio_version": "2.0",
+  "description": "Export and import personal logistic request profiles through a copy/paste code.",
+  "dependencies": ["base >= 2.0.0"]
+}
