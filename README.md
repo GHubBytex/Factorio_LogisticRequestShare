@@ -1,6 +1,7 @@
 # Logistic Request Share
 
 Minimal Factorio 2.0 mod that exports and imports the player's personal logistic request setup through a copy/paste code.
+https://mods.factorio.com/mod/logistic-request-share
 
 ## Current scope
 
