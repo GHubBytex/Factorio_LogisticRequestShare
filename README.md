@@ -11,7 +11,7 @@ Minimal Factorio 2.0 mod that exports and imports the player's personal logistic
 
 ## Usage
 
-1. Open the `LRS` button in the top mod GUI area.
+1. Click the `LRS` shortcut in the shortcut bar on the right side of the screen.
 2. Click `Capture Current` to generate a share code from your current personal logistics.
 3. Copy the code from the text box.
 4. Paste the code in another save and click `Apply Code`.

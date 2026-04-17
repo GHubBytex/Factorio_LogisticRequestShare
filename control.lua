@@ -1,11 +1,10 @@
-local mod_gui = require("__core__/lualib/mod-gui")
-
 local MOD_PREFIX = "LRS1"
 local ROOT_NAME = "lrs_root_frame"
 local TEXTBOX_NAME = "lrs_code_textbox"
 local STATUS_NAME = "lrs_status_label"
 local SUMMARY_NAME = "lrs_summary_label"
-local BUTTON_NAME = "lrs_toggle_button"
+local LEGACY_BUTTON_NAME = "lrs_toggle_button"
+local SHORTCUT_NAME = "lrs-toggle"
 
 local function ensure_global()
   storage.players = storage.players or {}
@@ -272,19 +271,22 @@ local function set_code(player, code)
   root.content_frame[TEXTBOX_NAME].text = code or ""
 end
 
-local function ensure_button(player)
-  local flow = mod_gui.get_button_flow(player)
-  if flow[BUTTON_NAME] then
-    return
+local function destroy_legacy_button(player)
+  local top = player.gui.top
+  local frame = top and top.mod_gui_top_frame
+  local flow = frame and frame.mod_gui_inner_frame
+  local button = flow and flow[LEGACY_BUTTON_NAME]
+  if button and button.valid then
+    button.destroy()
   end
 
-  flow.add{
-    type = "button",
-    name = BUTTON_NAME,
-    caption = "LRS",
-    tooltip = {"lrs.button-tooltip"},
-    style = mod_gui.button_style
-  }
+  if flow and flow.valid and #flow.children_names == 0 then
+    flow.destroy()
+  end
+
+  if frame and frame.valid and #frame.children_names == 0 then
+    frame.destroy()
+  end
 end
 
 local function destroy_gui(player)
@@ -449,11 +451,6 @@ local function on_gui_click(event)
   end
 
   local name = event.element and event.element.valid and event.element.name
-  if name == BUTTON_NAME then
-    toggle_gui(player)
-    return
-  end
-
   if name == "lrs_close_button" then
     destroy_gui(player)
     return
@@ -469,24 +466,37 @@ local function on_gui_click(event)
   end
 end
 
+local function on_lua_shortcut(event)
+  if event.prototype_name ~= SHORTCUT_NAME then
+    return
+  end
+
+  local player = game.get_player(event.player_index)
+  if not player then
+    return
+  end
+
+  toggle_gui(player)
+end
+
 local function on_player_created(event)
   local player = game.get_player(event.player_index)
   if player then
-    ensure_button(player)
+    destroy_legacy_button(player)
   end
 end
 
 local function on_player_joined(event)
   local player = game.get_player(event.player_index)
   if player then
-    ensure_button(player)
+    destroy_legacy_button(player)
   end
 end
 
 local function init()
   ensure_global()
   for _, player in pairs(game.players) do
-    ensure_button(player)
+    destroy_legacy_button(player)
   end
 end
 
@@ -495,6 +505,7 @@ script.on_configuration_changed(init)
 script.on_event(defines.events.on_player_created, on_player_created)
 script.on_event(defines.events.on_player_joined_game, on_player_joined)
 script.on_event(defines.events.on_gui_click, on_gui_click)
+script.on_event(defines.events.on_lua_shortcut, on_lua_shortcut)
 
 commands.add_command("lrs-export", {"lrs.command-export-help"}, function(command)
   local player = game.get_player(command.player_index)
