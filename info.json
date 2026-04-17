@@ -4,7 +4,7 @@
   "title": "Logistic Request Share",
   "author": "Bytex",
   "factorio_version": "2.0",
-  "description": "Export and import personal logistic request profiles through a copy/paste code.",
+  "description": "Capture, share, and restore personal logistic request profiles across saves and players with a simple copy/paste share code.",
   "dependencies": ["base >= 2.0.0"],
   "icon": "LRS icon.png"
 }
