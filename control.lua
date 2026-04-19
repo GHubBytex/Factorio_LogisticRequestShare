@@ -53,7 +53,21 @@ local function shallow_copy_signal(signal)
   return next(copy) and copy or nil
 end
 
-local function sanitize_filter(filter)
+local function normalize_slot_index(slot_index)
+  local numeric = tonumber(slot_index)
+  if not numeric or numeric < 1 then
+    return nil
+  end
+
+  local integer = math.floor(numeric)
+  if integer ~= numeric then
+    return nil
+  end
+
+  return integer
+end
+
+local function sanitize_filter(filter, slot_index)
   if not filter then
     return nil
   end
@@ -77,7 +91,79 @@ local function sanitize_filter(filter)
     return nil
   end
 
+  local normalized_slot = normalize_slot_index(slot_index)
+  if normalized_slot then
+    clean.index = normalized_slot
+  end
+
   return clean
+end
+
+local function count_profile_filters(filters)
+  if type(filters) ~= "table" then
+    return 0
+  end
+
+  local count = 0
+  for _, filter in pairs(filters) do
+    if type(filter) == "table" then
+      count = count + 1
+    end
+  end
+  return count
+end
+
+local function collect_profile_filters(filters)
+  if type(filters) ~= "table" then
+    return {}
+  end
+
+  local collected = {}
+  local seen = {}
+  local order = 0
+
+  for array_index, filter in ipairs(filters) do
+    order = order + 1
+    collected[#collected + 1] = {
+      filter = filter,
+      order = order,
+      slot_index = type(filter) == "table" and normalize_slot_index(filter.index) or nil
+    }
+    seen[array_index] = true
+  end
+
+  for key, filter in pairs(filters) do
+    if not seen[key] then
+      order = order + 1
+      local slot_index = nil
+      if type(filter) == "table" then
+        slot_index = normalize_slot_index(filter.index)
+      end
+      if not slot_index then
+        slot_index = normalize_slot_index(key)
+      end
+
+      collected[#collected + 1] = {
+        filter = filter,
+        order = order,
+        slot_index = slot_index
+      }
+    end
+  end
+
+  table.sort(collected, function(a, b)
+    local a_has_slot = a.slot_index ~= nil
+    local b_has_slot = b.slot_index ~= nil
+    if a_has_slot ~= b_has_slot then
+      return a_has_slot
+    end
+    if a_has_slot and a.slot_index ~= b.slot_index then
+      return a.slot_index < b.slot_index
+    end
+    return a.order < b.order
+  end)
+
+  return collected
 end
 
 local function serialize_point(point)
@@ -88,7 +174,16 @@ local function serialize_point(point)
     sections = {}
   }
 
+  local sections = {}
   for _, section in pairs(point.sections) do
+    sections[#sections + 1] = section
+  end
+
+  table.sort(sections, function(a, b)
+    return a.index < b.index
+  end)
+
+  for _, section in ipairs(sections) do
     local section_data = {
       group = section.group ~= "" and section.group or nil,
       active = section.active,
@@ -96,12 +191,16 @@ local function serialize_point(point)
       filters = {}
     }
 
-    for _, filter in pairs(section.filters) do
-      local clean = sanitize_filter(filter)
+    for slot_index, filter in pairs(section.filters) do
+      local clean = sanitize_filter(filter, slot_index)
       if clean then
         section_data.filters[#section_data.filters + 1] = clean
       end
     end
+
+    table.sort(section_data.filters, function(a, b)
+      return (a.index or math.huge) < (b.index or math.huge)
+    end)
 
     profile.sections[#profile.sections + 1] = section_data
   end
@@ -114,7 +213,7 @@ local function make_summary(profile)
   local filter_count = 0
 
   for _, section in ipairs(profile.sections) do
-    filter_count = filter_count + #section.filters
+    filter_count = filter_count + count_profile_filters(section.filters)
   end
 
   return {"lrs.summary-template", section_count, filter_count}
@@ -199,35 +298,55 @@ local function apply_profile_to_point(profile, point)
       section.active = section_data.active ~= false
       section.multiplier = tonumber(section_data.multiplier) or 1
 
-      local filters = {}
-      for _, filter in ipairs(section_data.filters or {}) do
-        local value = filter.value
-        local value_name = value and value.name
-        local value_type = value and value.type
+      -- Older v1 payloads store filters sequentially without slot metadata.
+      -- Newer payloads carry the original slot index so custom layouts survive export/import.
+      local next_slot_index = 1
+      local used_slots = {}
 
-        if not value_name then
+      for _, entry in ipairs(collect_profile_filters(section_data.filters)) do
+        local filter = entry.filter
+        if type(filter) ~= "table" then
           skipped[#skipped + 1] = {"lrs.skip-missing-name"}
-        elseif value_type and value_type ~= "item" then
-          skipped[#skipped + 1] = {"lrs.skip-unsupported-type", value_name, value_type}
-        elseif not prototypes.item[value_name] then
-          skipped[#skipped + 1] = {"lrs.skip-missing-item", value_name}
         else
-          filters[#filters + 1] = {
-            value = {
-              name = value_name,
-              quality = value.quality,
-              comparator = value.comparator
-            },
-            min = filter.min,
-            max = filter.max,
-            minimum_delivery_count = filter.minimum_delivery_count,
-            import_from = filter.import_from
-          }
-          created_filters = created_filters + 1
+          local value = filter.value
+          local value_name = value and value.name
+          local value_type = value and value.type
+
+          if not value_name then
+            skipped[#skipped + 1] = {"lrs.skip-missing-name"}
+          elseif value_type and value_type ~= "item" then
+            skipped[#skipped + 1] = {"lrs.skip-unsupported-type", value_name, value_type}
+          elseif not prototypes.item[value_name] then
+            skipped[#skipped + 1] = {"lrs.skip-missing-item", value_name}
+          else
+            local slot_index = entry.slot_index
+            if slot_index and used_slots[slot_index] then
+              slot_index = nil
+            end
+            if not slot_index then
+              while used_slots[next_slot_index] do
+                next_slot_index = next_slot_index + 1
+              end
+              slot_index = next_slot_index
+            end
+
+            used_slots[slot_index] = true
+            section.set_slot(slot_index, {
+              value = {
+                type = value_type,
+                name = value_name,
+                quality = value.quality,
+                comparator = value.comparator
+              },
+              min = filter.min,
+              max = filter.max,
+              minimum_delivery_count = filter.minimum_delivery_count,
+              import_from = filter.import_from
+            })
+            created_filters = created_filters + 1
+          end
         end
       end
-
-      section.filters = filters
     end
   end
 
