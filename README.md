@@ -8,6 +8,7 @@ https://mods.factorio.com/mod/logistic-request-share
 - Player only
 - Copy/paste transfer only
 - Saves and restores personal logistic sections plus `enabled` and `trash_not_requested`
+- Preserves custom request slot layout within each section
 - Skips missing items instead of failing the whole import
 
 ## Usage
